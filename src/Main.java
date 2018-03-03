@@ -1,13 +1,12 @@
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Scanner;
-import java.util.TreeMap;
+import java.util.Stack;
 
 class Grot {
-	private int value = 0;
-	private int neib1 = 0, neib2 = 0, neib3 = 0;
-	private boolean hard1, hard2, hard3;
+	public int value = 0;
+	public int[] neibs = new int[3];
+	private int neibSize = 0;
+	public boolean[] hards = new boolean[3];
 	
 	public Grot() {
 		this(0);
@@ -18,41 +17,34 @@ class Grot {
 	}
 	
 	public void setNextNeibourgh(int val, boolean hard) {
-		if (neib1 == 0) {
-			neib1 = val;
-			hard1 = hard;
+		int index = 0;
+		while (index < neibSize) {
+			if (val < neibs[index]) {
+				for (int i = neibSize; i > index; i--) {
+					neibs[i] = neibs[i - 1];
+					hards[i] = hards[i - 1];
+				}
+				neibs[index] = val;
+				hards[index] = hard;
+				neibSize++;
+				return;
+			}
+			else {
+				index++;
+			}
 		}
-		else if (neib2 == 0) {
-			neib2 = val;
-			hard2 = hard;
+		if (index == neibSize) {
+			neibs[index] = val;
+			hards[index] = hard;
 		}
-		else if (neib3 == 0) {
-			neib3 = val;
-			hard3 = hard;
-		}
+		neibSize++;
 	}
 	
 	@Override
 	public String toString() {
-		return "value: " + value + " (" + neib1 + " " + hard1 + ", " + neib2 + " " + hard2 + ", " + neib3 + " " + hard3 + ")";
+		return "value: " + value + " (" + neibs[0] + " " + hards[0] + ", " + neibs[1] + " " + hards[1] + ", " + neibs[2] + " " + hards[2] + ")";
 	}
 	
-}
-
-class Junction {
-	public int start, end;
-	public boolean hard;
-	
-	public Junction(int start, int end, boolean hard) {
-		this.start = start;
-		this.end = end;
-		this.hard = hard;
-	}
-	
-	@Override
-	public String toString() {
-		return start + " - " + end + " (" + (hard ? "hard" : "easy") + ")";
-	}
 }
 
 public class Main {
@@ -61,15 +53,21 @@ public class Main {
 	private static final String OUTPUT_FILE_NAME = "output.out";
 	private static int n, k, junctionsNum;
 	private static Grot[] grots;
-
+	private static boolean[] av; //if grot available
+	private static Stack<Integer> way;
+	private static Stack<Integer> innerWay = new Stack<>();
+	private static int[][] matrix, matrixCopy;
+	
 	public static void main(String[] args) {
 		initData();
 		testData();
 		processData();
+		testData();
 		outputData();
 	}
 	
 	private static void initData() {
+		way = new Stack<>();
         Scanner scanner = null;
         try {
             scanner = new Scanner(new File(INPUT_FILE_NAME));
@@ -77,15 +75,25 @@ public class Main {
         catch (Exception e) {}
         n = scanner.nextInt();
         k = scanner.nextInt();
+        matrix = new int[n + 1][n + 1];
+        for (int i = 1; i <= n; i++) {
+        	for (int j = 1; j <= n; j++) {
+        		matrix[i][j] = -1;
+        	}
+        }
         junctionsNum = 3 * n / 2;
         grots = new Grot[n + 1];
-        int start, end;
-        boolean hard;
+        av = new boolean[n + 1];
+        int start, end, hard;
         for (int i = 0; i < junctionsNum; i++) {
         	start = scanner.nextInt();
         	end = scanner.nextInt();
-        	hard = scanner.nextInt() == 1 ? true : false;
-        	processOneGrot(start, end, hard);
+        	hard = scanner.nextInt();
+        	//processOneGrot(start, end, hard);
+        	matrix[start][end] = matrix[end][start] = hard;
+        }
+        for (int i = 1; i <= n; i++) {
+        	av[i] = true;
         }
 	}
 	
@@ -107,16 +115,72 @@ public class Main {
 	}
 	
 	private static void processData() {
-		
+		int[] data = findInnerWayFromOuterToOuter(1, 3);
+		System.out.println("weight = " + data[0] + ", length = " + data[1]);
 	}
 	
+	private static void step(int start, int end, int num) {
+	}
+	
+	private static int[] findInnerWayFromOuterToOuter(int start, int end) {
+		matrixCopy = new int[n + 1][n + 1];
+		for (int i = 1; i <=n; i++) {
+			for (int j = 1; j <= n; j++) {
+				matrixCopy[i][j] = matrix[i][j];
+			}
+		}
+		int res = 0;
+		Stack<Integer> innerWay = new Stack<>();
+		//innerWay.push(start);
+		for (int i = k + 1; i <= n; i++) {
+			if (matrix[start][i] >= 0) {
+				findInnerWay(i, end, innerWay);
+				break;
+			}
+		}
+		int prev = start;
+		for (Integer grot: innerWay) {
+			res += matrix[prev][grot];
+			prev = grot;
+		}
+		return new int[]{res, innerWay.size() + 1};
+	}
+	
+	private static boolean findInnerWay(int start, int end, Stack<Integer> innerWay) {
+		innerWay.push(start);
+		if (matrixCopy[start][end] >= 0) {
+			innerWay.push(end);
+			return true;
+		}
+		for (int i = k + 1; i <= n; i++) {
+			if (matrixCopy[start][i] >= 0) {
+				int saved = matrixCopy[start][i];
+				matrixCopy[start][i] = matrixCopy[i][start] = -1;
+				boolean found = findInnerWay(i, end, innerWay);
+				if (found) {
+					return true;
+				}
+				else {
+					innerWay.pop();
+					matrixCopy[start][i] = matrixCopy[i][start] = saved;
+				}
+			}
+		}
+		return false;
+	}
 	private static void testData() {
 		System.out.println("n = " + n + ", k = " + k);
-		System.out.println("grots:");
+		/*System.out.println("grots:");
 		for (Grot grot: grots) {
 			if (grot != null) {
 				System.out.println(grot);				
 			}
+		}*/
+		for (int i = 1; i <= n; i++) {
+			for (int j = 1; j <= n; j++) {
+				System.out.print(matrix[i][j] + " ");
+			}
+			System.out.println("");
 		}
 	}
 
