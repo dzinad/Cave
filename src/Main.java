@@ -3,10 +3,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.Stack;
 
 public class Main {
@@ -65,11 +65,11 @@ public class Main {
     static class Item {
     	//private List<List<Integer>> ways = new ArrayList<>(); //индексы в массиве innerWays
     	private HashMap<BigInteger, Integer> complexity = new HashMap<>();
-    	private HashMap<BigInteger, List<InnerWay>> coverage = new HashMap<>();
+    	private HashMap<BigInteger, Set<InnerWay>> coverage = new HashMap<>();
     	
     	public Item() {}
     	
-    	public void addWays(List<InnerWay> w) {
+    	public void addWays(Set<InnerWay> w) {
     		BigInteger res = null;
     		int c = 0;
     		for (InnerWay iw: w) {
@@ -77,12 +77,36 @@ public class Main {
     				res = iw.getCoverage();
     			}
     			else {
-    				res  = res.and(iw.getCoverage());
+    				res  = res.or(iw.getCoverage());
     			}
     			c += iw.getComplexity();
     		}
+    		Integer prevC = complexity.get(res);
+    		if (prevC != null && prevC <= c) {
+    			return;
+    		}
     		coverage.put(res, w);
     		complexity.put(res, c);
+    	}
+    	
+    	public void mergeWays(Item item1, Item item2) {
+    		for (BigInteger cov1: item1.coverage.keySet()) {
+    			Set<InnerWay> ways1 = item1.coverage.get(cov1);
+    			//int c1 = item1.complexity.get(cov1);
+    			for (BigInteger cov2: item2.coverage.keySet()) {
+        			Set<InnerWay> ways2 = item2.coverage.get(cov2);
+        			//int c3 = item1.complexity.get(cov1);
+    				Set<InnerWay> tmp = new HashSet<>();
+    				tmp.addAll(ways1);
+    				tmp.addAll(ways2);
+    				/*for (InnerWay iw: ways2) {
+    					if (tmp.add(iw)) {
+    						c3 += iw.getComplexity();
+    					}
+    				}*/
+    				addWays(tmp);
+    			}
+    		}
     	}
     	
     	@Override
@@ -191,19 +215,59 @@ public class Main {
             }
         }
         
-        for (int i = 0; i < n - k; i++) {
+        func(0, n - k - 1);
+        
+        /*for (int i = 0; i < n - k; i++) {
         	for (int j = 0; j < k; j++) {
         		if (coverage[j][i] > 0) {
-        			List<InnerWay> list = new ArrayList<>();
-        			list.add(innerWays[j]);
-        			res[i][i].addWays(list);
+        			Set<InnerWay> set = new HashSet<>();
+        			set.add(innerWays[j]);
+        			res[i][i].addWays(set);
         		}
         	}
-        	System.out.println(i + k + 1 + ": " + res[i][i]);
-        }
+        	//System.out.println(i + k + 1 + ": " + res[i][i]);
+        }*/
+        
+        /*for (int l = 1; l < n - k; l++) {
+            for (int i = 0; i < n - k - l; i++) {
+            	res[i][i + l] = new Item();
+            	//res[i][i + l].mergeWays(res[i][i + l - 1], res[i + 1][i + l]);
+            	//System.out.println((i + k + 1) + ", " + (i + k + 1 + l) + ": " + res[i][i + l]);
+            }
+        }*/
+        System.out.println("res: " + res[0][n - k - 1]);
+        
+        /*for (int i = 0; i < n - k - 1; i++) {
+        	res[i][i + 1].mergeWays(res[i][i], res[i + 1][i + 1]);
+        	//System.out.println((i + k + 1) + ", " + (i + k + 2) + ": " + res[i][i + 1]);
+        }*/
 
     }
 
+    private static void func(int start, int end) {
+    	if (start == end) {
+        	for (int j = 0; j < k; j++) {
+        		if (coverage[j][start] > 0) {
+        			Set<InnerWay> set = new HashSet<>();
+        			set.add(innerWays[j]);
+        			res[start][start].addWays(set);
+        		}
+        	}    		
+        	return;
+    	}
+
+    	int m = (start + end) / 2;
+    	func(start, m);
+    	func(m + 1, end);
+
+    	res[start][end].mergeWays(res[start][m], res[m + 1][end]);    	
+    }
+    
+    private static void set(int start, int end) {
+
+    	
+    }
+    
     private static Stack<Integer> findInnerWayFromOuterToOuter(int start, int end) {
         if (start == end) {
             return new Stack<Integer>();
