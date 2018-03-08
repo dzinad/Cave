@@ -2,74 +2,116 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Stack;
-
-class InnerWay {
-	private Stack<Integer> innerGrots;
-	private int start, end;
-	private int complexity;
-	
-	public InnerWay(int start, int end, Stack<Integer> innerGrots) {
-		this.innerGrots = innerGrots;
-		this.start = start;
-		this.end = end;
-		countComplexity();
-	}
-	
-	private void countComplexity() {
-		complexity = 0;
-        int prev = start;
-        for (Integer w: innerGrots) {
-        	complexity += Main.matrix[prev][w];
-        	prev = w;
-        }
-        complexity += Main.matrix[prev][end];
-	}
-	
-	public Stack<Integer> getInnerGrots() {
-		return innerGrots;
-	}
-	
-	public int getComplexity() {
-		return complexity;
-	}
-	
-	public int getStart() {
-		return start;
-	}
-	
-	public int getEnd() {
-		return end;
-	}
-}
 
 public class Main {
 
     private static final String INPUT_FILE_NAME = "input.in";
     private static final String OUTPUT_FILE_NAME = "output.out";
     private static int n, k, junctionsNum;
-    public static int[][] matrix;
-    private static int[][] matrixCopy;
+    private static Stack<Integer> way;
+    private static Stack<Integer> innerWay = new Stack<>();
+    private static int[][] matrix, matrixCopy;
     private static int[] starts, ends;
+    private static boolean ifEnter = true;
+    //private static HashMap<Integer, Stack<Integer>> innerWays;
+    private static int[][] coverage;
     private static InnerWay[] innerWays;
     private static int innerWaysLength = 0;
-    private static List<Integer> finalWay = new ArrayList<>();
-    private static HashSet<InnerWay> finalInnerWay;
+    private static Item[][] res;    
+
+    static class InnerWay {
+    	private int start, end;
+    	private Stack<Integer> innerGrots;
+    	private BigInteger coverage;
+    	private int complexity = 0;
+    	
+    	public InnerWay(int start, int end, Stack<Integer> innerGrots, String coverage) {
+    		this.start = start;
+    		this.end = end;
+    		this.innerGrots = innerGrots;
+    		this.coverage = new BigInteger(coverage);
+    		setComplexity();
+    	}
+    	
+    	public BigInteger getCoverage() {
+    		return coverage;
+    	}
+    	
+    	private void setComplexity() {
+    		int prev = start;
+    		for (Integer grot: innerGrots) {
+    			complexity += matrix[prev][grot];
+    			prev = grot;
+    		}
+    		complexity += matrix[prev][end];
+    	}
+    	
+    	public int getComplexity() {
+    		return complexity;
+    	}
+    	
+    	@Override
+    	public String toString() {
+    		return start + " - " + end;
+    	}
+    }
     
+    static class Item {
+    	//private List<List<Integer>> ways = new ArrayList<>(); //индексы в массиве innerWays
+    	private HashMap<BigInteger, Integer> complexity = new HashMap<>();
+    	private HashMap<BigInteger, List<InnerWay>> coverage = new HashMap<>();
+    	
+    	public Item() {}
+    	
+    	public void addWays(List<InnerWay> w) {
+    		BigInteger res = null;
+    		int c = 0;
+    		for (InnerWay iw: w) {
+    			if (res == null) {
+    				res = iw.getCoverage();
+    			}
+    			else {
+    				res  = res.and(iw.getCoverage());
+    			}
+    			c += iw.getComplexity();
+    		}
+    		coverage.put(res, w);
+    		complexity.put(res, c);
+    	}
+    	
+    	@Override
+    	public String toString() {
+    		String res = "";
+    		for( BigInteger cov: coverage.keySet()) {
+    			res += "coverage: " + cov + "\n";
+    			for (InnerWay iw: coverage.get(cov)) {
+    				res += iw + " and ";
+    			}
+    			res += "\ncomplexity = " + complexity.get(cov);
+    			res += "\nor";
+    		}
+    		return res;
+    	}
+    	
+    }
+
     public static void main(String[] args) {
-        //long start = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
         initData();
         processData();
-        outputData();
-        //long end = System.currentTimeMillis();
-        //System.out.println("time: " + (end - start));
+        //outputData();
+        long end = System.currentTimeMillis();
+        System.out.println("time: " + (end - start));
     }
 
     private static void initData() {
+        way = new Stack<>();
         Scanner scanner = null;
         try {
             scanner = new Scanner(new File(INPUT_FILE_NAME));
@@ -77,6 +119,7 @@ public class Main {
         catch (Exception e) {}
         n = scanner.nextInt();
         k = scanner.nextInt();
+        innerWays = new InnerWay[k];
         matrix = new int[n + 1][n + 1];
         matrixCopy = new int[n + 1][n + 1];
         for (int i = 1; i <= n; i++) {
@@ -86,7 +129,6 @@ public class Main {
         }
         junctionsNum = 3 * n / 2;
         int start, end, hard;
-        innerWays = new InnerWay[k];
         starts = new int[junctionsNum + 1];
         ends = new int[junctionsNum + 1];
         for (int i = 0; i < junctionsNum; i++) {
@@ -97,15 +139,25 @@ public class Main {
             ends[i] = end;
             matrix[start][end] = matrix[end][start] = matrixCopy[start][end] = matrixCopy[end][start] = hard;
         }
+        coverage = new int[k][n - k];
+        res = new Item[n - k][n - k];
     }
 
     private static void outputData() {
-        int last = finalWay.remove(finalWay.size() - 1);
+		/*System.out.println("way:");
+		if (way == null) {
+			System.out.println("way null");
+			return;
+		}*/
+        way.pop();
+        int last = way.pop();
         StringBuffer sb = new StringBuffer();
-        for (Integer w: finalWay) {
+        for (Integer w: way) {
             sb.append(w + " ");
+            //System.out.print(w + " ");
         }
         sb.append(last + "");
+        //System.out.println("");
         BufferedWriter writer;
         try {
             writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_NAME));
@@ -117,127 +169,41 @@ public class Main {
     }
 
     private static void processData() {
+        for (int i = 0; i < n - k; i++) {
+        	for (int j = i; j < n - k; j++) {
+            	res[i][j] = new Item();        		
+        	}
+        }
+
         for (int i = 0; i < junctionsNum; i++) {
             if (starts[i] <= k && ends[i] <= k && starts[i] != ends[i]) {
-                Stack<Integer> innerWay = findInnerWayFromOuterToOuter(starts[i], ends[i]); 
-                InnerWay tmp = new InnerWay(starts[i], ends[i], innerWay);
+                Stack<Integer> innerGrots = findInnerWayFromOuterToOuter(starts[i], ends[i]);
+                for (Integer grot: innerGrots) {
+                	coverage[innerWaysLength][grot - k - 1] = 1;
+                }
+                StringBuffer sb = new StringBuffer();
+                for (int j = 0; j < n - k; j++) {
+                	sb.append(coverage[innerWaysLength][j] + "");
+                }
+                InnerWay tmp = new InnerWay(starts[i], ends[i], innerGrots, sb.toString());
                 innerWays[innerWaysLength] = tmp;
                 innerWaysLength++;
             }
         }
         
-        HashSet<HashSet<InnerWay>> coverage = findCoverages(k + 1);
-        Integer minComplexity = null;
-        for (HashSet<InnerWay> conj: coverage) {
-        	int curComplexity = 0;
-        	for (InnerWay iw: conj) {
-        		curComplexity += iw.getComplexity() - matrix[iw.getStart()][iw.getEnd()];
+        for (int i = 0; i < n - k; i++) {
+        	for (int j = 0; j < k; j++) {
+        		if (coverage[j][i] > 0) {
+        			List<InnerWay> list = new ArrayList<>();
+        			list.add(innerWays[j]);
+        			res[i][i].addWays(list);
+        		}
         	}
-        	if (minComplexity == null || curComplexity < minComplexity) {
-        		minComplexity = curComplexity;
-        		finalInnerWay = conj;
-        	}
+        	System.out.println(i + k + 1 + ": " + res[i][i]);
         }
 
-        findFinalWay(1, 1);
     }
 
-    private static void findFinalWay(int from, int grot) {
-    	boolean innerWayAdded = false;
-    	for (InnerWay iw: finalInnerWay) {
-    		if (iw.getStart() == from && iw.getEnd() == grot) {
-    			finalWay.addAll(iw.getInnerGrots());
-    			finalWay.add(grot);
-    			innerWayAdded = true;
-    			break;
-    		}
-    		if (iw.getEnd() == from && iw.getStart() == grot) {
-    			Stack<Integer> tmp = iw.getInnerGrots();
-    			while(!tmp.empty()) {
-    				finalWay.add(tmp.pop());
-    			}
-    			finalWay.add(grot);
-    			innerWayAdded = true;
-    			break;
-    		}
-    	}
-    	if (grot == 1 && from != 1) {
-    		return;
-    	}
-    	for (int i = 1; i <= k; i++) {
-    		if (matrix[grot][i] >= 0 && i != from) {
-    			if (!innerWayAdded) {
-    				finalWay.add(grot);
-    			}
-    			findFinalWay(grot, i);
-    			break;
-    		}
-    		
-    	}
-    }
-    
-
-    private static HashSet<HashSet<InnerWay>> findCoverages(int startGrot) {
-    	HashSet<HashSet<InnerWay>> res = new HashSet<>();
-    	if (startGrot == n) {
-    		for (InnerWay iw: innerWays) {
-    			if (iw.getInnerGrots().contains(startGrot)) {
-    				HashSet<InnerWay> tmp = new HashSet<>();
-    				tmp.add(iw);
-    				res.add(tmp);
-    			}
-    		}
-    		return res;
-    	}
-
-    	for (InnerWay iw: innerWays) {
-    		if (iw.getInnerGrots().contains(startGrot)) {
-    			HashSet<HashSet<InnerWay>> tmp = findCoverages(startGrot + 1);
-    			for (HashSet<InnerWay> conj: tmp) {
-    				HashSet<InnerWay> newConj = new HashSet<>();
-    				newConj.addAll(conj);
-    				boolean shouldAdd = true;
-    				for (InnerWay oneWay: conj) {
-    					if (oneWay.equals(iw)) {
-    						continue;
-    					}
-    					for (Integer grot: iw.getInnerGrots()) {
-        					if (oneWay.getInnerGrots().contains(grot)) {
-        						shouldAdd = false;
-        						break;
-        					}
-    					}
-    					if (!shouldAdd) {
-    						break;
-    					}
-    				}
-    				if (!shouldAdd) {
-    					continue;
-    				}
-    				newConj.add(iw);
-    				List<HashSet<InnerWay>> toRemove = new ArrayList<>();
-        			for (HashSet<InnerWay> prevConj: res) {
-        				if (newConj.containsAll(prevConj)) {
-        					shouldAdd = false;
-        					break;
-        				}
-        				if (prevConj.containsAll(newConj)) {
-        					toRemove.add(prevConj);
-        				}
-        			}
-        			if (!shouldAdd) {
-        				continue;
-        			}
-        			for (HashSet<InnerWay> tr: toRemove) {
-        				res.remove(tr);
-        			}
-        			res.add(newConj);        				
-    			}
-    		}
-    	}
-    	return res;
-    }
-    
     private static Stack<Integer> findInnerWayFromOuterToOuter(int start, int end) {
         if (start == end) {
             return new Stack<Integer>();
