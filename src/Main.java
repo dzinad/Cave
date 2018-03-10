@@ -2,9 +2,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigInteger;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.Stack;
@@ -14,33 +15,80 @@ public class Main {
     private static final String INPUT_FILE_NAME = "input.in";
     private static final String OUTPUT_FILE_NAME = "output.out";
     private static int n, k, junctionsNum;
-    private static Stack<Integer> way;
+    private static List<Integer> way;
     private static Stack<Integer> innerWay = new Stack<>();
     private static int[][] matrix, matrixCopy;
     private static int[] starts, ends;
     private static boolean ifEnter = true;
     //private static HashMap<Integer, Stack<Integer>> innerWays;
     private static int[][] coverage;
+    private static int[][] coverageCopy;
+    private static boolean[][] compat;
     private static InnerWay[] innerWays;
     private static int innerWaysLength = 0;
-    private static Item[][] res;    
-
+    private static Item[] arr;
+    private static HashSet<Integer> best;
+    
+    static class Item {
+    	private HashSet<HashSet<Integer>> data;
+    	
+    	public Item() {
+    		data = new HashSet<>();
+    	}
+    	
+    	public Item(HashSet<HashSet<Integer>> hs) {
+    		data = hs;
+    	}
+    	
+    	public HashSet<HashSet<Integer>> getData() {
+    		return data;
+    	}
+    	
+    	public void addWay(Integer w) {
+    		HashSet<Integer> tmp = new HashSet<>();
+    		tmp.add(w);
+    		data.add(tmp);
+    	}
+    	
+    	public HashSet<Integer> getBestOption() {
+    		int minComplexity = -1;
+    		HashSet<Integer> res = null;
+    		for (HashSet<Integer> hs: data) {
+    			int complexity = 0;
+    			for (Integer i: hs) {
+    				complexity += innerWays[i].getComplexity() - matrix[innerWays[i].getStart()][innerWays[i].getEnd()];
+    			}
+    			if (complexity < minComplexity || minComplexity == -1) {
+    				minComplexity = complexity;
+    				res = hs;
+    			}
+    		}
+    		return res;
+    	}
+    	
+    	@Override
+    	public String toString() {
+    		String res = "";
+    		for (HashSet<Integer> hs: data) {
+    			for (Integer i: hs) {
+    				res += innerWays[i] + " and ";
+    			}
+    			res += "\nor\n";
+    		}
+    		return res;
+    	}
+    }
+    
     static class InnerWay {
     	private int start, end;
     	private Stack<Integer> innerGrots;
-    	private BigInteger coverage;
     	private int complexity = 0;
     	
-    	public InnerWay(int start, int end, Stack<Integer> innerGrots, String coverage) {
+    	public InnerWay(int start, int end, Stack<Integer> innerGrots) {
     		this.start = start;
     		this.end = end;
     		this.innerGrots = innerGrots;
-    		this.coverage = new BigInteger(coverage);
     		setComplexity();
-    	}
-    	
-    	public BigInteger getCoverage() {
-    		return coverage;
     	}
     	
     	private void setComplexity() {
@@ -52,8 +100,20 @@ public class Main {
     		complexity += matrix[prev][end];
     	}
     	
+    	public int getStart() {
+    		return start;
+    	}
+    	
+    	public int getEnd() {
+    		return end;
+    	}
+    	
     	public int getComplexity() {
     		return complexity;
+    	}
+    	
+    	public Stack<Integer> getInnerGrots() {
+    		return innerGrots;
     	}
     	
     	@Override
@@ -62,76 +122,13 @@ public class Main {
     	}
     }
     
-    static class Item {
-    	//private List<List<Integer>> ways = new ArrayList<>(); //индексы в массиве innerWays
-    	private HashMap<BigInteger, Integer> complexity = new HashMap<>();
-    	private HashMap<BigInteger, Set<InnerWay>> coverage = new HashMap<>();
-    	
-    	public Item() {}
-    	
-    	public void addWays(Set<InnerWay> w) {
-    		BigInteger res = null;
-    		int c = 0;
-    		for (InnerWay iw: w) {
-    			if (res == null) {
-    				res = iw.getCoverage();
-    			}
-    			else {
-    				res  = res.or(iw.getCoverage());
-    			}
-    			c += iw.getComplexity();
-    		}
-    		Integer prevC = complexity.get(res);
-    		if (prevC != null && prevC <= c) {
-    			return;
-    		}
-    		coverage.put(res, w);
-    		complexity.put(res, c);
-    	}
-    	
-    	public void mergeWays(Item item1, Item item2) {
-    		for (BigInteger cov1: item1.coverage.keySet()) {
-    			Set<InnerWay> ways1 = item1.coverage.get(cov1);
-    			//int c1 = item1.complexity.get(cov1);
-    			for (BigInteger cov2: item2.coverage.keySet()) {
-        			Set<InnerWay> ways2 = item2.coverage.get(cov2);
-        			//int c3 = item1.complexity.get(cov1);
-    				Set<InnerWay> tmp = new HashSet<>();
-    				tmp.addAll(ways1);
-    				tmp.addAll(ways2);
-    				/*for (InnerWay iw: ways2) {
-    					if (tmp.add(iw)) {
-    						c3 += iw.getComplexity();
-    					}
-    				}*/
-    				addWays(tmp);
-    			}
-    		}
-    	}
-    	
-    	@Override
-    	public String toString() {
-    		String res = "";
-    		for( BigInteger cov: coverage.keySet()) {
-    			res += "coverage: " + cov + "\n";
-    			for (InnerWay iw: coverage.get(cov)) {
-    				res += iw + " and ";
-    			}
-    			res += "\ncomplexity = " + complexity.get(cov);
-    			res += "\nor";
-    		}
-    		return res;
-    	}
-    	
-    }
-
     public static void main(String[] args) {
-        long start = System.currentTimeMillis();
+        //long start = System.currentTimeMillis();
         initData();
         processData();
-        //outputData();
-        long end = System.currentTimeMillis();
-        System.out.println("time: " + (end - start));
+        outputData();
+        //long end = System.currentTimeMillis();
+        //System.out.println("time: " + (end - start));
     }
 
     private static void initData() {
@@ -163,25 +160,30 @@ public class Main {
             ends[i] = end;
             matrix[start][end] = matrix[end][start] = matrixCopy[start][end] = matrixCopy[end][start] = hard;
         }
-        coverage = new int[k][n - k];
-        res = new Item[n - k][n - k];
+        compat = new boolean[k][k];
+        for (int i = 0; i < k; i++) {
+        	for (int j = i; j < k; j++) {
+        		compat[i][j] = compat[j][i] = true; 
+        	}
+        }
+        arr = new Item[n - k];
+        for (int i = 0; i < n - k; i++) {
+        	arr[i] = new Item();
+        }
+        way = new ArrayList<>();
     }
 
     private static void outputData() {
-		/*System.out.println("way:");
-		if (way == null) {
-			System.out.println("way null");
-			return;
-		}*/
-        way.pop();
-        int last = way.pop();
+    	int index = 0;
         StringBuffer sb = new StringBuffer();
         for (Integer w: way) {
+        	if (index == way.size() - 1) {
+        		break;
+        	}
             sb.append(w + " ");
-            //System.out.print(w + " ");
+            index++;
         }
-        sb.append(last + "");
-        //System.out.println("");
+        sb.append(way.get(index) + "");
         BufferedWriter writer;
         try {
             writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_NAME));
@@ -189,83 +191,191 @@ public class Main {
             writer.close();
         }
         catch (IOException e) {}
-
     }
 
     private static void processData() {
-        for (int i = 0; i < n - k; i++) {
-        	for (int j = i; j < n - k; j++) {
-            	res[i][j] = new Item();        		
-        	}
-        }
 
         for (int i = 0; i < junctionsNum; i++) {
             if (starts[i] <= k && ends[i] <= k && starts[i] != ends[i]) {
                 Stack<Integer> innerGrots = findInnerWayFromOuterToOuter(starts[i], ends[i]);
-                for (Integer grot: innerGrots) {
-                	coverage[innerWaysLength][grot - k - 1] = 1;
-                }
-                StringBuffer sb = new StringBuffer();
-                for (int j = 0; j < n - k; j++) {
-                	sb.append(coverage[innerWaysLength][j] + "");
-                }
-                InnerWay tmp = new InnerWay(starts[i], ends[i], innerGrots, sb.toString());
+                InnerWay tmp = new InnerWay(starts[i], ends[i], innerGrots);
                 innerWays[innerWaysLength] = tmp;
+                for (Integer grot: innerGrots) {
+                	arr[grot - k - 1].addWay(innerWaysLength);
+                }
                 innerWaysLength++;
             }
         }
         
-        func(0, n - k - 1);
-        
-        /*for (int i = 0; i < n - k; i++) {
-        	for (int j = 0; j < k; j++) {
-        		if (coverage[j][i] > 0) {
-        			Set<InnerWay> set = new HashSet<>();
-        			set.add(innerWays[j]);
-        			res[i][i].addWays(set);
+        for (int i = 0; i < k; i++) {
+        	for (int j = i + 1; j < k; j++) {
+        		for (Integer g: innerWays[j].getInnerGrots()) {
+        			if (innerWays[i].getInnerGrots().contains(g)) {
+        				compat[i][j] = compat[j][i] = false;
+        				break;
+        			}
         		}
         	}
-        	//System.out.println(i + k + 1 + ": " + res[i][i]);
-        }*/
+        		
+        }
         
-        /*for (int l = 1; l < n - k; l++) {
-            for (int i = 0; i < n - k - l; i++) {
-            	res[i][i + l] = new Item();
-            	//res[i][i + l].mergeWays(res[i][i + l - 1], res[i + 1][i + l]);
-            	//System.out.println((i + k + 1) + ", " + (i + k + 1 + l) + ": " + res[i][i + l]);
-            }
+        Item res = f(0, n - k - 1);
+        best = res.getBestOption();
+        findFinalWay(1);
+        /*System.out.println("way:");
+        for (Integer w: way) {
+        	System.out.print(w + " ");
         }*/
-        System.out.println("res: " + res[0][n - k - 1]);
-        
-        /*for (int i = 0; i < n - k - 1; i++) {
-        	res[i][i + 1].mergeWays(res[i][i], res[i + 1][i + 1]);
-        	//System.out.println((i + k + 1) + ", " + (i + k + 2) + ": " + res[i][i + 1]);
-        }*/
-
-    }
-
-    private static void func(int start, int end) {
-    	if (start == end) {
-        	for (int j = 0; j < k; j++) {
-        		if (coverage[j][start] > 0) {
-        			Set<InnerWay> set = new HashSet<>();
-        			set.add(innerWays[j]);
-        			res[start][start].addWays(set);
-        		}
-        	}    		
-        	return;
-    	}
-
-    	int m = (start + end) / 2;
-    	func(start, m);
-    	func(m + 1, end);
-
-    	res[start][end].mergeWays(res[start][m], res[m + 1][end]);    	
     }
     
-    private static void set(int start, int end) {
-
+    private static void findFinalWay(int start) {
+    	for (int i = 1; i <= k; i++) {
+    		if (matrix[start][i] >= 0) {
+    			matrix[start][i] = matrix[i][start] = -1;    			
+    			way.add(start);
+    			
+    			for (Integer b: best) {
+    				if (innerWays[b].getStart() == start && innerWays[b].getEnd() == i) {
+    					Stack<Integer> tmp = innerWays[b].getInnerGrots(); 
+    					for (Integer grot: tmp) {
+    						way.add(grot);
+    					}
+    				}
+    				else if (innerWays[b].getEnd() == start && innerWays[b].getStart() == i) {
+    					Stack<Integer> tmp = innerWays[b].getInnerGrots(); 
+    					while (!tmp.empty()) {
+    						way.add(tmp.pop());
+    					}
+    				}
+    			}
+    			
+    			findFinalWay(i);
+    		}
+    	}
+    }
+    
+    private static Item f(int start, int end) {
+    	if (start == end) {
+    		return arr[start];
+    	}
     	
+    	int m = (start + end) / 2;
+    	return merge(f(start, m), f(m + 1, end));
+    }
+    
+    private static Item merge(Item item1, Item item2) {
+    	HashSet<HashSet<Integer>> hs1 = item1.getData();
+    	HashSet<HashSet<Integer>> hs2 = item2.getData();
+    	HashSet<HashSet<Integer>> res = new HashSet<>();
+    	for (HashSet<Integer> conj1: hs1) {
+    		for (HashSet<Integer> conj2: hs2) {
+    			boolean canMerge = true;
+    			for (Integer iw1: conj1) {
+    				for (Integer iw2: conj2) {
+    					if (!compat[iw1][iw2]) {
+    						canMerge=  false;
+    						break;
+    					}
+    				}
+    				if (!canMerge) {
+    					break;
+    				}
+    			}
+    			if (!canMerge) {
+    				continue;
+    			}
+    			HashSet<Integer> tmp = new HashSet<>();
+    			tmp.addAll(conj1);
+    			tmp.addAll(conj2);
+    			res.add(tmp);
+    		}
+    	}
+    	return new Item(res);
+    }
+    
+    private static void print(int[][] m) {
+    	System.out.println("====================");
+    	for (int i = 0; i < m.length; i++) {
+    		for (int j = 0; j < m[0].length; j++) {
+    			System.out.print(m[i][j] + " ");
+    		}
+    		System.out.println("");
+    	}
+    	System.out.println("====================");
+    }
+    
+    private static int process(int[][] cov) {
+    	//print(cov);
+    	if (cov.length == 0) {
+    		//print(cov);
+    		//System.out.println("ret = 0");
+    		return 0;
+    	}
+    	if (cov.length == 1) {
+    		int min = -1;
+    		for (int i = 0; i < cov[0].length; i++) {
+    			if (cov[0][i] >= 0 && (cov[0][i] < min || min == -1)) {
+    				min = cov[0][i];
+    			}
+    		}
+    		//print(cov);
+    		//System.out.println("ret = " + min);
+    		return min;
+    	}
+    	int[][] newCov;
+    	Set<Integer> columns = new HashSet<>();
+    	List<Integer> cs = new ArrayList<>();
+    	for (int i = 0; i < cov[0].length; i++) {
+    		if (cov[0][i] >= 0) {
+    			columns.add(i);
+    		}
+    	}
+    	
+    	for (Integer col: columns) {
+    		List<Integer> rows = new ArrayList<>();
+    		Set<Integer> cols = new HashSet<>();
+    		cols.addAll(columns);
+    		for (int i = 0; i < cov.length; i++) {
+    			if (cov[i][col] >= 0) {
+    				rows.add(i);
+    			}
+    		}
+    		for (Integer row: rows) {
+    			for (int i = 0; i < cov[0].length; i++) {
+    				if (cov[row][i] >= 0) {
+    					cols.add(i);
+    				}
+    			}
+    		}
+    		//print(cov);
+    		//System.out.println("col: " + col + ", -rows: " + rows.size());
+    		int d1 = cov.length - rows.size();
+    		int d2 = cov[0].length - cols.size();
+    		int l1 = 0, l2 = 0;
+    		newCov = new int[d1][d2];
+    		for (int i = 0; i < cov.length; i++) {
+    			l2 = 0;
+    			if (rows.contains(i)) {
+    				continue;
+    			}
+    			for (int j = 0; j < cov[0].length; j++) {
+    				if (cols.contains(j)) {
+    					continue;
+    				}
+    				newCov[l1][l2] = cov[i][j];
+    				l2++;
+    			}
+    			l1++;
+    		}
+    		int tmp = process(newCov);
+    		if (tmp != -1) {
+        		cs.add(cov[rows.get(0)][col] + process(newCov));    			
+    		}
+    	}
+    	int ret = (cs.size() == 0) ? -1 : Collections.min(cs);
+    	//print(cov);
+    	//System.out.println("ret = " + ret);
+    	return ret;
     }
     
     private static Stack<Integer> findInnerWayFromOuterToOuter(int start, int end) {
