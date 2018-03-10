@@ -3,11 +3,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
 import java.util.Stack;
 
 public class Main {
@@ -16,13 +14,8 @@ public class Main {
     private static final String OUTPUT_FILE_NAME = "output.out";
     private static int n, k, junctionsNum;
     private static List<Integer> way;
-    private static Stack<Integer> innerWay = new Stack<>();
     private static int[][] matrix, matrixCopy;
     private static int[] starts, ends;
-    private static boolean ifEnter = true;
-    //private static HashMap<Integer, Stack<Integer>> innerWays;
-    private static int[][] coverage;
-    private static int[][] coverageCopy;
     private static boolean[][] compat;
     private static InnerWay[] innerWays;
     private static int innerWaysLength = 0;
@@ -222,10 +215,6 @@ public class Main {
         Item res = f(0, n - k - 1);
         best = res.getBestOption();
         findFinalWay(1);
-        /*System.out.println("way:");
-        for (Integer w: way) {
-        	System.out.print(w + " ");
-        }*/
     }
     
     private static void findFinalWay(int start) {
@@ -292,92 +281,7 @@ public class Main {
     	}
     	return new Item(res);
     }
-    
-    private static void print(int[][] m) {
-    	System.out.println("====================");
-    	for (int i = 0; i < m.length; i++) {
-    		for (int j = 0; j < m[0].length; j++) {
-    			System.out.print(m[i][j] + " ");
-    		}
-    		System.out.println("");
-    	}
-    	System.out.println("====================");
-    }
-    
-    private static int process(int[][] cov) {
-    	//print(cov);
-    	if (cov.length == 0) {
-    		//print(cov);
-    		//System.out.println("ret = 0");
-    		return 0;
-    	}
-    	if (cov.length == 1) {
-    		int min = -1;
-    		for (int i = 0; i < cov[0].length; i++) {
-    			if (cov[0][i] >= 0 && (cov[0][i] < min || min == -1)) {
-    				min = cov[0][i];
-    			}
-    		}
-    		//print(cov);
-    		//System.out.println("ret = " + min);
-    		return min;
-    	}
-    	int[][] newCov;
-    	Set<Integer> columns = new HashSet<>();
-    	List<Integer> cs = new ArrayList<>();
-    	for (int i = 0; i < cov[0].length; i++) {
-    		if (cov[0][i] >= 0) {
-    			columns.add(i);
-    		}
-    	}
-    	
-    	for (Integer col: columns) {
-    		List<Integer> rows = new ArrayList<>();
-    		Set<Integer> cols = new HashSet<>();
-    		cols.addAll(columns);
-    		for (int i = 0; i < cov.length; i++) {
-    			if (cov[i][col] >= 0) {
-    				rows.add(i);
-    			}
-    		}
-    		for (Integer row: rows) {
-    			for (int i = 0; i < cov[0].length; i++) {
-    				if (cov[row][i] >= 0) {
-    					cols.add(i);
-    				}
-    			}
-    		}
-    		//print(cov);
-    		//System.out.println("col: " + col + ", -rows: " + rows.size());
-    		int d1 = cov.length - rows.size();
-    		int d2 = cov[0].length - cols.size();
-    		int l1 = 0, l2 = 0;
-    		newCov = new int[d1][d2];
-    		for (int i = 0; i < cov.length; i++) {
-    			l2 = 0;
-    			if (rows.contains(i)) {
-    				continue;
-    			}
-    			for (int j = 0; j < cov[0].length; j++) {
-    				if (cols.contains(j)) {
-    					continue;
-    				}
-    				newCov[l1][l2] = cov[i][j];
-    				l2++;
-    			}
-    			l1++;
-    		}
-    		int tmp = process(newCov);
-    		if (tmp != -1) {
-        		cs.add(cov[rows.get(0)][col] + process(newCov));    			
-    		}
-    	}
-    	int ret = (cs.size() == 0) ? -1 : Collections.min(cs);
-    	//print(cov);
-    	//System.out.println("ret = " + ret);
-    	return ret;
-    }
-    
+        
     private static Stack<Integer> findInnerWayFromOuterToOuter(int start, int end) {
         if (start == end) {
             return new Stack<Integer>();
@@ -420,15 +324,6 @@ public class Main {
             }
         }
         return false;
-    }
-    private static void testData() {
-        System.out.println("n = " + n + ", k = " + k);
-        for (int i = 1; i <= n; i++) {
-            for (int j = 1; j <= n; j++) {
-                System.out.print(matrix[i][j] + " ");
-            }
-            System.out.println("");
-        }
     }
 
 }
